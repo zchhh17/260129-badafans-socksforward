@@ -19,6 +19,7 @@ jobs:
       - name: Checkout backup repo
         uses: actions/checkout@v4
         with:
+          ref: backup-meta   # 👈 Actions 所在分支
           fetch-depth: 0
 
       - name: Set git identity
