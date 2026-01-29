@@ -12,12 +12,13 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout backup branch
+      - name: Checkout control branch
         uses: actions/checkout@v4
         with:
+          ref: backup-meta
           fetch-depth: 0
 
-      - name: Download all upstream releases
+      - name: Download upstream releases (all assets)
         run: |
           mkdir -p releases
           page=1
@@ -27,11 +28,12 @@ jobs:
             [ "$count" -eq 0 ] && break
 
             echo "$data" | jq -r '.[] | .tag_name' | while read tag; do
-              echo "Downloading assets for release $tag"
+              echo "Downloading assets for $tag"
               gh release download "$tag" \
                 --repo badafans/socksforward \
                 --dir "releases/$tag" || true
             done
+
             page=$((page+1))
           done
         env:
@@ -46,12 +48,12 @@ jobs:
             echo "Processing release $tag"
 
             if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "Release $tag exists, uploading assets..."
+              echo "Release exists, uploading assets..."
               gh release upload "$tag" "$dir"/* \
                 --repo "$GITHUB_REPOSITORY" \
                 --clobber
             else
-              echo "Release $tag does not exist, creating..."
+              echo "Creating new release $tag"
               gh release create "$tag" "$dir"/* \
                 --repo "$GITHUB_REPOSITORY" \
                 --title "$tag" \
