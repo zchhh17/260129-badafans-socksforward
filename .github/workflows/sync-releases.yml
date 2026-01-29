@@ -1,4 +1,43 @@
-- name: Publish releases to backup repo
+name: Sync upstream releases
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 */6 * * *'
+
+jobs:
+  sync-releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout backup branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all upstream releases
+        run: |
+          mkdir -p releases
+          page=1
+          while true; do
+            data=$(gh api repos/badafans/socksforward/releases?page=$page)
+            count=$(echo "$data" | jq length)
+            [ "$count" -eq 0 ] && break
+
+            echo "$data" | jq -r '.[] | .tag_name' | while read tag; do
+              echo "Downloading assets for release $tag"
+              gh release download "$tag" \
+                --repo badafans/socksforward \
+                --dir "releases/$tag" || true
+            done
+            page=$((page+1))
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish releases to backup repo
         run: |
           for dir in releases/*; do
             [ -d "$dir" ] || continue
