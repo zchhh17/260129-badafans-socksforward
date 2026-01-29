@@ -1,42 +1,23 @@
-name: Sync upstream releases
-
-on:
-  schedule:
-    - cron: '30 */6 * * *'
-  workflow_dispatch:
-
-jobs:
-  releases:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all upstream releases
-        uses: robinraju/release-downloader@v1.10
-        with:
-          repository: badafans/socksforward
-          # 关键：下载所有 release
-          latest: true
-          fileName: "*"
-          out-file-path: releases
-
-      - name: Publish releases to backup repo
+- name: Publish releases to backup repo
         run: |
           for dir in releases/*; do
             [ -d "$dir" ] || continue
             tag=$(basename "$dir")
 
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "Release $tag already exists, skip"
-              continue
-            fi
+            echo "Processing release $tag"
 
-            echo "Creating release $tag"
-            gh release create "$tag" "$dir"/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$tag" \
-              --notes "Backup from badafans/socksforward"
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "Release $tag exists, uploading assets..."
+              gh release upload "$tag" "$dir"/* \
+                --repo "$GITHUB_REPOSITORY" \
+                --clobber
+            else
+              echo "Release $tag does not exist, creating..."
+              gh release create "$tag" "$dir"/* \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$tag" \
+                --notes "Backup from badafans/socksforward"
+            fi
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
