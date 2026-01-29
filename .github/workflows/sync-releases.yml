@@ -12,19 +12,27 @@ jobs:
       contents: write
 
     steps:
-      - name: Sync releases from upstream
+      - name: Download all upstream releases
         uses: robinraju/release-downloader@v1.10
         with:
           repository: badafans/socksforward
-          latest: false
+          # 关键：下载所有 release
+          latest: true
           fileName: "*"
           out-file-path: releases
 
-      - name: Re-publish releases to backup repo
+      - name: Publish releases to backup repo
         run: |
           for dir in releases/*; do
+            [ -d "$dir" ] || continue
             tag=$(basename "$dir")
-            gh release view "$tag" >/dev/null 2>&1 || \
+
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "Release $tag already exists, skip"
+              continue
+            fi
+
+            echo "Creating release $tag"
             gh release create "$tag" "$dir"/* \
               --repo "$GITHUB_REPOSITORY" \
               --title "$tag" \
