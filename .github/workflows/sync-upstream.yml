@@ -1,14 +1,10 @@
-name: Sync socksforward upstream
+name: Sync upstream source
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'   # 每 6 小时同步一次
   workflow_dispatch:
-# 👇 加这个
-defaults:
-  run:
-    shell: bash
-    
+  schedule:
+    - cron: '0 */6 * * *'
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -16,10 +12,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout backup repo
+      - name: Checkout control branch
         uses: actions/checkout@v4
         with:
-          ref: backup-meta   # 👈 Actions 所在分支
+          ref: backup-meta
           fetch-depth: 0
 
       - name: Set git identity
@@ -27,17 +23,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream repository
+      - name: Add upstream repo
         run: |
           git remote add upstream https://github.com/badafans/socksforward.git || true
 
-      - name: Fetch upstream (all branches + tags)
+      - name: Fetch upstream (all branches & tags)
         run: |
-          git fetch upstream --tags
+          git fetch upstream --prune --tags
 
       - name: Sync branches
         run: |
           for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
+            echo "Sync branch: $branch"
             git checkout -B "$branch" "upstream/$branch"
             git push origin "$branch" --force
           done
@@ -45,10 +42,3 @@ jobs:
       - name: Sync tags
         run: |
           git push origin --tags --force
-
-      - name: Sync releases (assets included)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: dummy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
