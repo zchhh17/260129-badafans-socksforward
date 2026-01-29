@@ -1,0 +1,34 @@
+name: Sync upstream releases
+
+on:
+  schedule:
+    - cron: '30 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Sync releases from upstream
+        uses: robinraju/release-downloader@v1.10
+        with:
+          repository: badafans/socksforward
+          latest: false
+          fileName: "*"
+          out-file-path: releases
+
+      - name: Re-publish releases to backup repo
+        run: |
+          for dir in releases/*; do
+            tag=$(basename "$dir")
+            gh release view "$tag" >/dev/null 2>&1 || \
+            gh release create "$tag" "$dir"/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$tag" \
+              --notes "Backup from badafans/socksforward"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
